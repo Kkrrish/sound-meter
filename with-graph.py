@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 """
 roar=alsaaudio.PCM(alsaaudio.PCM_CAPTURE,alsaaudio.PCM_NONBLOCK)
 
@@ -12,7 +14,6 @@ while True :
 		print "deetch.."
 	time.sleep(0.5)
 """
-#!/usr/bin/python
 ## This is an example of a simple sound capture script.
 ##
 ## The script opens an ALSA pcm for sound capture. Set
@@ -22,10 +23,7 @@ while True :
 ## To test it out, run it and shout at your microphone:
 
 import alsaaudio, time, audioop
-#import matplotlib.pyplot as plt
-import numpy as np
 import pygame
-import math
 
 # Open the device in nonblocking capture mode. The last argument could
 # just as well have been zero for blocking mode. Then we could have
@@ -51,28 +49,27 @@ width=0.8
 
 #PyGame initialisations and basic objects
 pygame.init()
-screenx=1280
-screeny=720
-size=[screenx,screeny]
-screen=pygame.display.set_mode(size)
+screensize = (900, 600)
+screen=pygame.display.set_mode(screensize)
 pygame.display.set_caption("Shout harder.. :D")
 
 #Defining colors
 WHITE=(255,255,255)
-RED=(255,0,0)
+RED=(255,128,128)
+YELLOW=(255,255,128)
 BLUE=(0,0,255)
 
 #Loop till close button clicked
 done=False
 clock=pygame.time.Clock()
 
-turn=0
-loudest=[0,0,0]
-startx=50
-width=40
-sound_track=[]
-for i in range(0,startx):
-	sound_track.append(0)
+margin = 20
+samples_per_section = screensize[0]/3 - 2*margin
+
+sound_tracks = [[0]*samples_per_section]*3
+max_value = [0]*3
+
+current_section = 0
 
 while not done:
 
@@ -80,47 +77,56 @@ while not done:
 	#Not required here because already the for loop takes averages over one second
 	#clock.tick(10)
 
-	print turn
 	total=0
 	#Now we read data from device for around one second
 	for i in range(0,100):
-		l,data = inp.read()
-		if l:
-			reading=audioop.max(data, 2)
-			total=total+reading
-		time.sleep(.00001)
-	total=total/100
-	temp=sound_track[1:]
-	temp.append(total)
-	sound_track=temp
-	#print total
-	loudest[turn]=max(loudest,total)
-	bar_height=int(total)
+            l,data = inp.read()
+            if l:
+                reading=audioop.max(data, 2)
+                total=total+reading
+            time.sleep(.00001)
 
-	if turn==0:
-		startx=50
-	elif turn==1:
-		startx=150
-	elif turn==2:
-		startx=250
+	total=total/30
 
+        sound_tracks[current_section] = sound_tracks[current_section][1:] + [total]
+	max_value[current_section] = max(max_value[current_section], total)
 
 	screen.fill(WHITE)
-	#add sumukh vala feature
-	for i in range(0,startx):
-		pygame.draw.rect(screen,BLUE,[i,screeny-100-sound_track[i],1,sound_track[i]])
-	#add meet wala last year ka feature
-	pygame.draw.rect(screen,RED,[startx,screeny-100-bar_height,width,bar_height])
-	
+
+        # draw highlighted section
+        pygame.draw.rect(screen,YELLOW,
+                         (screensize[0]/3*current_section, 0,
+                          screensize[0]/3, screensize[1]))
+
+        for i in range(3):
+            sectionx = i*screensize[0]/3 + margin
+            #add meet wala last year ka feature
+            pygame.draw.rect(screen,RED,(sectionx, screensize[1] - max_value[i],
+                                         screensize[0]/3 - 2*margin, max_value[i]))
+
+            #add sumukh vala feature
+	    for j in range(0,screensize[0]/3 - 2*margin):
+                x = j + sectionx
+                y = screensize[1] - sound_tracks[i][j]
+	        pygame.draw.rect(screen,BLUE,(x, y, 1, sound_tracks[i][j]))
+
 	#frame flip must happen after all drawing commands
 	pygame.display.flip()
-	
+
 	#Set close button event
 	for event in pygame.event.get():
-		if event.type==pygame.QUIT:
-			done=True
-		if event.type==pygame.KEYDOWN :
-				turn=(turn+1)%3
+            if event.type==pygame.QUIT:
+                done=True
+            if event.type==pygame.MOUSEBUTTONUP :
+                if event.button == 3:
+                    # right button pressed, clear all arrays
+                    sound_tracks = [[0]*samples_per_section]*3
+                    max_value = [0]*3
+                    current_section = 0
+                else:
+                    pos = pygame.mouse.get_pos()
+                    current_section = (pos[0] * 3) / screensize[0]
+                    print pos, current_section
 	"""
 	#For matplotlib
 	score.append(total)
